@@ -2,7 +2,7 @@
 import UIKit
 
 typealias DribbbleAuthCompletion = (NSError?)->Void
-typealias DribbbleApiCompletion = (DribbbleApiResult)->Void
+typealias DribbbleApiCompletion = (result:DribbbleApiResult)->Void
 
 let DribbbleErrorDomain:String = "com.dribbble.Error"
 let DribbbleErrorCodeAPIError = 0
@@ -257,7 +257,7 @@ class DribbbleApi : NSObject {
 		
 		//check for error
 		if error != nil {
-			completion(resultStruct)
+            completion(result: resultStruct)
 			return
 		}
 		
@@ -271,7 +271,7 @@ class DribbbleApi : NSObject {
 					resultStruct.decodedJSON = results
 				} catch let error as NSError {
 					resultStruct.error = error
-					completion(resultStruct)
+                    completion(result: resultStruct)
 					return
 				}
 				
@@ -280,13 +280,13 @@ class DribbbleApi : NSObject {
 					resultStruct.decodedJSON = results
 					let error = NSError(domain: DribbbleErrorDomain, code: DribbbleErrorCodeAPIError, userInfo:["ErrorDescription":errorDescription])
 					resultStruct.error = error
-					completion(resultStruct)
+                    completion(result: resultStruct)
 					return
 				}
 			}
 		}
 		
-		completion(resultStruct)
+        completion(result: resultStruct)
 	}
 	
 	//MARK: Buckets - http://developer.dribbble.com/v1/buckets/
