@@ -1,13 +1,20 @@
 
 import UIKit
 
+//completion for DribbbleAuth
 typealias DribbbleAuthCompletion = (NSError?)->Void
+
+//completion for all DribbbleApi service methods
 typealias DribbbleApiCompletion = (result:DribbbleApiResult)->Void
 
 let DribbbleErrorDomain:String = "com.dribbble.Error"
-let DribbbleErrorCodeAPIError = 0
-let DribbbleErrorCodeOAuthError = 1
+enum DribbbleErrorCode:Int {
+    case APIError
+}
 
+//Use with DribbbleAuth.authenticateWithScopes.
+//DribbbleApi requires different auth scopes depending on what
+//you're trying to do. http://developer.dribbble.com/v1/oauth/#scopes
 enum DribbbleAuthScopes:String {
 	case Public
 	case Write
@@ -15,6 +22,7 @@ enum DribbbleAuthScopes:String {
 	case Upload
 }
 
+//Result struct passed to all your DribbbleApiCompletion callbacks.
 struct DribbbleApiResult {
 	var error:NSError?
 	var responseStatusCode:Int?
@@ -23,6 +31,8 @@ struct DribbbleApiResult {
 	var decodedJSON:AnyObject?
 }
 
+//DribbbleAuth is used for authentication against dribbble OAuth
+//and provided as a parameter to DribbbleApi instances.
 class DribbbleAuth : NSObject {
 	
 	private var clientId:String?
@@ -74,7 +84,7 @@ class DribbbleAuth : NSObject {
 		//check if we have a code
 		if code == nil {
 			let userInfo = ["Error":"No code parameter in callback"]
-			let error = NSError(domain: DribbbleErrorDomain, code: DribbbleErrorCodeOAuthError, userInfo:userInfo)
+			let error = NSError(domain: DribbbleErrorDomain, code: DribbbleErrorCode.APIError.rawValue, userInfo:userInfo)
 			self.authCompletion(error)
 			return
 		}
@@ -121,7 +131,7 @@ class DribbbleAuth : NSObject {
 					userInfo["Error"] = errorType as! String
 					userInfo["ErrorDescription"] = errorDescription as! String
 					NSUserDefaults.standardUserDefaults().removeObjectForKey("token_\(self.clientId)")
-					let error = NSError(domain: DribbbleErrorDomain, code: DribbbleErrorCodeOAuthError, userInfo:userInfo)
+					let error = NSError(domain: DribbbleErrorDomain, code: DribbbleErrorCode.APIError.rawValue, userInfo: userInfo)
 					self.authCompletion(error)
 					return
 				}
@@ -147,11 +157,14 @@ class DribbbleAuth : NSObject {
 }
 
 //DribbbleApi to make api calls. Methods are named according to the API here http://developer.dribbble.com/v1/
-
+//For information about what's in the result callback refer to the dribbble api docs for each specific endpoint.
+//You can use the properties on DribbbleApiResult passed to your callbacks to check for error conditions, and
+//get json, or raw http response codes.
 class DribbbleApi : NSObject {
 	
 	private var auth:DribbbleAuth;
 	
+    //optional init, returns nil in case the dribbbleAuth isn't authenticated
 	init?(withDribbbleAuth dribbbleAuth:DribbbleAuth) {
 		self.auth = dribbbleAuth
 		super.init()
@@ -277,8 +290,8 @@ class DribbbleApi : NSObject {
 				
 				//check for custom error in json response
 				if let errorDescription = results?["error_description"] as? String {
-					resultStruct.decodedJSON = results
-					let error = NSError(domain: DribbbleErrorDomain, code: DribbbleErrorCodeAPIError, userInfo:["ErrorDescription":errorDescription])
+                    let userInfo = ["ErrorDescription":errorDescription]
+                    let error = NSError(domain: DribbbleErrorDomain, code: DribbbleErrorCode.APIError.rawValue , userInfo: userInfo)
 					resultStruct.error = error
                     completion(result: resultStruct)
 					return
