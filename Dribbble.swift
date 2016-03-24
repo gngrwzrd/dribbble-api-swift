@@ -2,7 +2,7 @@
 import UIKit
 
 typealias DribbbleAuthCompletion = (NSError?)->Void
-typealias DribbbleApiCompletion = (results:AnyObject?,error:NSError?)->Void
+typealias DribbbleApiCompletion = (DribbbleApiResult)->Void
 
 let DribbbleErrorDomain:String = "com.dribbble.Error"
 let DribbbleErrorCodeAPIError = 0
@@ -19,7 +19,8 @@ struct DribbbleApiResult {
 	var error:NSError?
 	var responseStatusCode:Int?
 	var response:NSHTTPURLResponse?
-	var data:NSData?
+	var responseData:NSData?
+	var decodedJSON:AnyObject?
 }
 
 class DribbbleAuth : NSObject {
@@ -49,7 +50,7 @@ class DribbbleAuth : NSObject {
 	}
 	
 	//call to start authentication process
-	func authenticateWithScopes(scopes:Set<DribbbleAuthScopes>, completion:DribbbleAuthCompletion ) {
+	func authenticateWithScopes(scopes:Set<DribbbleAuthScopes>, completion:DribbbleAuthCompletion) {
 		self.authCompletion = completion
 		var authURL = "https://dribbble.com/oauth/authorize?client_id=\(self.clientId!)&scope=";
 		for scope in scopes {
@@ -78,7 +79,7 @@ class DribbbleAuth : NSObject {
 			return
 		}
 		
-		//request the oauth token
+		//sertup request body
 		let params = ["code":code!,"client_id":clientId!,"client_secret":clientSecret!];
 		var json:NSData?
 		do {
@@ -249,33 +250,43 @@ class DribbbleApi : NSObject {
 	}
 	
 	func handleAPIRequestResponse(data:NSData?, response:NSURLResponse?, error:NSError?, completion:DribbbleApiCompletion) {
+		//setup a result struct
+		let httpResponse = response as! NSHTTPURLResponse
+		let headers = httpResponse.allHeaderFields
+		var resultStruct = DribbbleApiResult(error: error, responseStatusCode: httpResponse.statusCode, response: httpResponse, responseData: data, decodedJSON: nil)
+		
+		//check for error
 		if error != nil {
-			completion(results:nil,error:error)
+			completion(resultStruct)
 			return
 		}
 		
-		//TODO: check if content-type is json.
-		//TODO: use struct DribbbleApiResult to pass to callbacks with more info
-		//TODO: double check all service calls and their responses. Some user HTTP status codes as the only
-		// indicator of response
-		
-		//get json results
-		var results:AnyObject?
-		do {
-			try results = NSJSONSerialization.JSONObjectWithData(data!, options: NSJSONReadingOptions.AllowFragments)
-		} catch let error as NSError {
-			completion(results: nil, error: error)
-			return
+		//if result is json decode it
+		if let contentType = headers["Content-Type"] as? String {
+			if contentType == "application/json" {
+				//get json results
+				var results:AnyObject?
+				do {
+					try results = NSJSONSerialization.JSONObjectWithData(data!, options: NSJSONReadingOptions.AllowFragments)
+					resultStruct.decodedJSON = results
+				} catch let error as NSError {
+					resultStruct.error = error
+					completion(resultStruct)
+					return
+				}
+				
+				//check for custom error in json response
+				if let errorDescription = results?["error_description"] as? String {
+					resultStruct.decodedJSON = results
+					let error = NSError(domain: DribbbleErrorDomain, code: DribbbleErrorCodeAPIError, userInfo:["ErrorDescription":errorDescription])
+					resultStruct.error = error
+					completion(resultStruct)
+					return
+				}
+			}
 		}
 		
-		//check for custom error even though status was 200
-		if let errorDescription = results?["error_description"] as? String {
-			let error = NSError(domain: DribbbleErrorDomain, code: DribbbleErrorCodeAPIError, userInfo:["ErrorDescription":errorDescription])
-			completion(results: nil, error: error)
-			return
-		}
-		
-		completion(results: results, error: error)
+		completion(resultStruct)
 	}
 	
 	//MARK: Buckets - http://developer.dribbble.com/v1/buckets/
