@@ -263,7 +263,7 @@ class DribbbleApi : NSObject {
 		
 		//if result is json decode it
 		if let contentType = headers["Content-Type"] as? String {
-			if contentType == "application/json" {
+			if contentType.containsString("application/json") {
 				//get json results
 				var results:AnyObject?
 				do {
