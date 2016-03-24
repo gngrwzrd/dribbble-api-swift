@@ -287,10 +287,13 @@ class DribbbleApi : NSObject {
                     completion(result: resultStruct)
 					return
 				}
-				
+                
 				//check for custom error in json response
-				if let errorDescription = results?["error_description"] as? String {
-                    let userInfo = ["ErrorDescription":errorDescription]
+				if let message = results?["message"] as? String {
+                    var userInfo:[String:AnyObject] = ["message":message]
+                    if let errors = results?["errors"] {
+                        userInfo["errors"] = errors
+                    }
                     let error = NSError(domain: DribbbleErrorDomain, code: DribbbleErrorCode.APIError.rawValue , userInfo: userInfo)
 					resultStruct.error = error
                     completion(result: resultStruct)
