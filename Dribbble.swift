@@ -173,14 +173,14 @@ class DribbbleApi : NSObject {
 		}
 	}
 	
-	func makeRequest(var forAPIEndpoint endpoint:String, method:String, queryParams:[String:String]? = nil, rawBody:NSData? = nil) -> NSURLRequest {
-		endpoint += "?"
+	func makeRequest(forAPIEndpoint endpoint:String, method:String, queryParams:[String:String]? = nil, rawBody:NSData? = nil) -> NSURLRequest {
+		var newEndpoint = endpoint + "?"
 		if queryParams != nil {
 			for (key,val) in queryParams! {
-				endpoint += "&" + key + "=" + val
+				newEndpoint += "&" + key + "=" + val
 			}
 		}
-		endpoint += "&access_token=" + self.auth.token!
+		newEndpoint += "&access_token=" + self.auth.token!
 		let url = NSURL(string: endpoint)!
 		let request = NSMutableURLRequest(URL: url)
 		request.HTTPBody = rawBody
@@ -188,9 +188,9 @@ class DribbbleApi : NSObject {
 		return request
 	}
 	
-	func makeFormEncodedJSONRequest(var forAPIEndpoint endpoint:String, method:String, body:NSData) -> NSURLRequest {
-		endpoint += "?access_token=" + self.auth.token!
-		let url = NSURL(string: endpoint)!
+	func makeFormEncodedJSONRequest(forAPIEndpoint endpoint:String, method:String, body:NSData) -> NSURLRequest {
+		let newEndpoint = endpoint + "?access_token=" + self.auth.token!
+		let url = NSURL(string: newEndpoint)!
 		let request = NSMutableURLRequest(URL: url)
 		request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 		request.HTTPMethod = method
@@ -198,10 +198,9 @@ class DribbbleApi : NSObject {
 		return request
 	}
 	
-	func makeMultipartRequest(var forAPIEndpoint endpoint:String, method:String, formParams:[String:AnyObject]) -> NSURLRequest {
-		endpoint += "?access_token=" + self.auth.token!
-		
-		let url = NSURL(string: endpoint)!
+	func makeMultipartRequest(forAPIEndpoint endpoint:String, method:String, formParams:[String:AnyObject]) -> NSURLRequest {
+		let newEndpoint = endpoint + "?access_token=" + self.auth.token!
+		let url = NSURL(string: newEndpoint)!
 		let request = NSMutableURLRequest(URL: url)
 		let postData = NSMutableData()
 		let boundary = "14737809831466499882746641449"
@@ -302,7 +301,7 @@ class DribbbleApi : NSObject {
 			}
 		}
 		
-        completion(result: resultStruct)
+		completion(result: resultStruct)
 	}
 	
 	//MARK: Buckets - http://developer.dribbble.com/v1/buckets/
