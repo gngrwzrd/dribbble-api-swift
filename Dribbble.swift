@@ -89,7 +89,7 @@ class DribbbleAuth : NSObject {
 			return
 		}
 		
-		//sertup request body
+		//setup request body
 		let params = ["code":code!,"client_id":clientId!,"client_secret":clientSecret!];
 		var json:NSData?
 		do {
@@ -107,14 +107,11 @@ class DribbbleAuth : NSObject {
 		request.HTTPMethod = "POST"
 		
 		//send the request
-		let task = NSURLSession.sharedSession().dataTaskWithRequest(request) { [weak self] (data:NSData?, response:NSURLResponse?, error:NSError?) in
-			
-			//capture strong self
-			guard let strongself = self else { return }
+		let task = NSURLSession.sharedSession().dataTaskWithRequest(request) { (data:NSData?, response:NSURLResponse?, error:NSError?) in
 			
 			//error
 			if error != nil {
-				strongself.authCompletion(error)
+				self.authCompletion(error)
 				return
 			}
 			
@@ -124,7 +121,7 @@ class DribbbleAuth : NSObject {
 				do {
 					try results = NSJSONSerialization.JSONObjectWithData(data!, options: NSJSONReadingOptions()) as? Dictionary<String,AnyObject>
 				} catch let error as NSError {
-					strongself.authCompletion(error)
+					self.authCompletion(error)
 					return
 				}
 				
@@ -133,20 +130,20 @@ class DribbbleAuth : NSObject {
 					var userInfo = [String:AnyObject]()
 					userInfo["Error"] = errorType as! String
 					userInfo["ErrorDescription"] = errorDescription as! String
-					NSUserDefaults.standardUserDefaults().removeObjectForKey("token_\(strongself.clientId)")
+					NSUserDefaults.standardUserDefaults().removeObjectForKey("token_\(self.clientId)")
 					let error = NSError(domain: DribbbleErrorDomain, code: DribbbleErrorCode.APIError.rawValue, userInfo: userInfo)
-					strongself.authCompletion(error)
+					self.authCompletion(error)
 					return
 				}
 				
 				//grab access token and save it
 				if let access_token = results?["access_token"] as? String {
-					strongself.token = access_token
-					NSUserDefaults.standardUserDefaults().setObject(access_token, forKey: "token_\(strongself.clientId!)")
+					self.token = access_token
+					NSUserDefaults.standardUserDefaults().setObject(access_token, forKey: "token_\(self.clientId!)")
 				}
 				
 				//callback
-				strongself.authCompletion(error)
+				self.authCompletion(error)
 			}
 		}
 		
@@ -184,7 +181,7 @@ class DribbbleApi : NSObject {
 			}
 		}
 		newEndpoint += "&access_token=" + self.auth.token!
-		let url = NSURL(string: endpoint)!
+		let url = NSURL(string: newEndpoint)!
 		let request = NSMutableURLRequest(URL: url)
 		request.HTTPBody = rawBody
 		request.HTTPMethod = method
@@ -239,9 +236,8 @@ class DribbbleApi : NSObject {
 	func sendSimpleRequest(apiPath:String, method:String, queryParams:[String:String]? = nil, rawBody:NSData? = nil, completion:DribbbleApiCompletion) {
 		let api = "https://api.dribbble.com/v1/" + apiPath
 		let apiRequest = makeRequest(forAPIEndpoint: api, method: method, queryParams: queryParams, rawBody: rawBody)
-		let task = NSURLSession.sharedSession().dataTaskWithRequest(apiRequest) { [weak self] (data:NSData?, response:NSURLResponse?, error:NSError?) in
-			guard let strongself = self else { return }
-			strongself.handleAPIRequestResponse(data, response: response, error: error, completion: completion)
+		let task = NSURLSession.sharedSession().dataTaskWithRequest(apiRequest) { (data:NSData?, response:NSURLResponse?, error:NSError?) in
+			self.handleAPIRequestResponse(data, response: response, error: error, completion: completion)
 		}
 		task.resume()
 	}
@@ -249,9 +245,8 @@ class DribbbleApi : NSObject {
 	func sendMultipartRequest(apiPath:String, method:String, formParams:[String:AnyObject], completion:DribbbleApiCompletion) {
 		let api = "https://api.dribbble.com/v1/" + apiPath
 		let apiRequest = makeMultipartRequest(forAPIEndpoint: api, method: method, formParams: formParams)
-		let task = NSURLSession.sharedSession().dataTaskWithRequest(apiRequest) { [weak self] (data:NSData?, response:NSURLResponse?, error:NSError?) in
-			guard let strongself = self else { return }
-			strongself.handleAPIRequestResponse(data, response: response, error: error, completion: completion)
+		let task = NSURLSession.sharedSession().dataTaskWithRequest(apiRequest) { (data:NSData?, response:NSURLResponse?, error:NSError?) in
+			self.handleAPIRequestResponse(data, response: response, error: error, completion: completion)
 		}
 		task.resume()
 	}
@@ -260,9 +255,8 @@ class DribbbleApi : NSObject {
 		let encoded = try NSJSONSerialization.dataWithJSONObject(parameters!, options: NSJSONWritingOptions())
 		let api = "https://api.dribbble.com/v1/" + apiPath
 		let apiRequest = makeFormEncodedJSONRequest(forAPIEndpoint: api, method: method, body: encoded)
-		let task = NSURLSession.sharedSession().dataTaskWithRequest(apiRequest) { [weak self] (data:NSData?, response:NSURLResponse?, error:NSError?) in
-			guard let strongself = self else { return }
-			strongself.handleAPIRequestResponse(data, response: response, error: error, completion: completion)
+		let task = NSURLSession.sharedSession().dataTaskWithRequest(apiRequest) { (data:NSData?, response:NSURLResponse?, error:NSError?) in
+			self.handleAPIRequestResponse(data, response: response, error: error, completion: completion)
 		}
 		task.resume()
 	}
