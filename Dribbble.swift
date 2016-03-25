@@ -239,8 +239,9 @@ class DribbbleApi : NSObject {
 	func sendSimpleRequest(apiPath:String, method:String, queryParams:[String:String]? = nil, rawBody:NSData? = nil, completion:DribbbleApiCompletion) {
 		let api = "https://api.dribbble.com/v1/" + apiPath
 		let apiRequest = makeRequest(forAPIEndpoint: api, method: method, queryParams: queryParams, rawBody: rawBody)
-		let task = NSURLSession.sharedSession().dataTaskWithRequest(apiRequest) { (data:NSData?, response:NSURLResponse?, error:NSError?) in
-			self.handleAPIRequestResponse(data, response: response, error: error, completion: completion)
+		let task = NSURLSession.sharedSession().dataTaskWithRequest(apiRequest) { [weak self] (data:NSData?, response:NSURLResponse?, error:NSError?) in
+			guard let strongself = self else { return }
+			strongself.handleAPIRequestResponse(data, response: response, error: error, completion: completion)
 		}
 		task.resume()
 	}
@@ -248,8 +249,9 @@ class DribbbleApi : NSObject {
 	func sendMultipartRequest(apiPath:String, method:String, formParams:[String:AnyObject], completion:DribbbleApiCompletion) {
 		let api = "https://api.dribbble.com/v1/" + apiPath
 		let apiRequest = makeMultipartRequest(forAPIEndpoint: api, method: method, formParams: formParams)
-		let task = NSURLSession.sharedSession().dataTaskWithRequest(apiRequest) { (data:NSData?, response:NSURLResponse?, error:NSError?) in
-			self.handleAPIRequestResponse(data, response: response, error: error, completion: completion)
+		let task = NSURLSession.sharedSession().dataTaskWithRequest(apiRequest) { [weak self] (data:NSData?, response:NSURLResponse?, error:NSError?) in
+			guard let strongself = self else { return }
+			strongself.handleAPIRequestResponse(data, response: response, error: error, completion: completion)
 		}
 		task.resume()
 	}
@@ -258,8 +260,9 @@ class DribbbleApi : NSObject {
 		let encoded = try NSJSONSerialization.dataWithJSONObject(parameters!, options: NSJSONWritingOptions())
 		let api = "https://api.dribbble.com/v1/" + apiPath
 		let apiRequest = makeFormEncodedJSONRequest(forAPIEndpoint: api, method: method, body: encoded)
-		let task = NSURLSession.sharedSession().dataTaskWithRequest(apiRequest) { (data:NSData?, response:NSURLResponse?, error:NSError?) in
-			self.handleAPIRequestResponse(data, response: response, error: error, completion: completion)
+		let task = NSURLSession.sharedSession().dataTaskWithRequest(apiRequest) { [weak self] (data:NSData?, response:NSURLResponse?, error:NSError?) in
+			guard let strongself = self else { return }
+			strongself.handleAPIRequestResponse(data, response: response, error: error, completion: completion)
 		}
 		task.resume()
 	}
