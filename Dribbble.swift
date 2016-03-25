@@ -107,11 +107,14 @@ class DribbbleAuth : NSObject {
 		request.HTTPMethod = "POST"
 		
 		//send the request
-		let task = NSURLSession.sharedSession().dataTaskWithRequest(request) { (data:NSData?, response:NSURLResponse?, error:NSError?) in
+		let task = NSURLSession.sharedSession().dataTaskWithRequest(request) { [weak self] (data:NSData?, response:NSURLResponse?, error:NSError?) in
+			
+			//capture strong self
+			guard let strongself = self else { return }
 			
 			//error
 			if error != nil {
-				self.authCompletion(error)
+				strongself.authCompletion(error)
 				return
 			}
 			
@@ -121,7 +124,7 @@ class DribbbleAuth : NSObject {
 				do {
 					try results = NSJSONSerialization.JSONObjectWithData(data!, options: NSJSONReadingOptions()) as? Dictionary<String,AnyObject>
 				} catch let error as NSError {
-					self.authCompletion(error)
+					strongself.authCompletion(error)
 					return
 				}
 				
@@ -130,20 +133,20 @@ class DribbbleAuth : NSObject {
 					var userInfo = [String:AnyObject]()
 					userInfo["Error"] = errorType as! String
 					userInfo["ErrorDescription"] = errorDescription as! String
-					NSUserDefaults.standardUserDefaults().removeObjectForKey("token_\(self.clientId)")
+					NSUserDefaults.standardUserDefaults().removeObjectForKey("token_\(strongself.clientId)")
 					let error = NSError(domain: DribbbleErrorDomain, code: DribbbleErrorCode.APIError.rawValue, userInfo: userInfo)
-					self.authCompletion(error)
+					strongself.authCompletion(error)
 					return
 				}
 				
 				//grab access token and save it
 				if let access_token = results?["access_token"] as? String {
-					self.token = access_token
-					NSUserDefaults.standardUserDefaults().setObject(access_token, forKey: "token_\(self.clientId!)")
+					strongself.token = access_token
+					NSUserDefaults.standardUserDefaults().setObject(access_token, forKey: "token_\(strongself.clientId!)")
 				}
 				
 				//callback
-				self.authCompletion(error)
+				strongself.authCompletion(error)
 			}
 		}
 		
