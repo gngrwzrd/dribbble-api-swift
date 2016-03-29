@@ -1,0 +1,30 @@
+{
+  "DVTSourceControlWorkspaceBlueprintPrimaryRemoteRepositoryKey" : "949A497AD58BBC546FD1EE12E5A0F3097B199148",
+  "DVTSourceControlWorkspaceBlueprintWorkingCopyRepositoryLocationsKey" : {
+
+  },
+  "DVTSourceControlWorkspaceBlueprintWorkingCopyStatesKey" : {
+    "949A497AD58BBC546FD1EE12E5A0F3097B199148" : 0,
+    "009912367949995CFDCE4830C3051A9623C9851E" : 0
+  },
+  "DVTSourceControlWorkspaceBlueprintIdentifierKey" : "F24E3FD2-C106-4BDB-A344-2956771ADEAF",
+  "DVTSourceControlWorkspaceBlueprintWorkingCopyPathsKey" : {
+    "949A497AD58BBC546FD1EE12E5A0F3097B199148" : "dribbble-api-swift\/",
+    "009912367949995CFDCE4830C3051A9623C9851E" : ".."
+  },
+  "DVTSourceControlWorkspaceBlueprintNameKey" : "OAuthSample",
+  "DVTSourceControlWorkspaceBlueprintVersion" : 204,
+  "DVTSourceControlWorkspaceBlueprintRelativePathToProjectKey" : "OAuthSample\/OAuthSample.xcodeproj",
+  "DVTSourceControlWorkspaceBlueprintRemoteRepositoriesKey" : [
+    {
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryURLKey" : "https:\/\/github.com\/gngrwzrd\/UIImageLoaderSwift.git",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositorySystemKey" : "com.apple.dt.Xcode.sourcecontrol.Git",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryIdentifierKey" : "009912367949995CFDCE4830C3051A9623C9851E"
+    },
+    {
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryURLKey" : "https:\/\/github.com\/gngrwzrd\/dribbble-api-swift.git",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositorySystemKey" : "com.apple.dt.Xcode.sourcecontrol.Git",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryIdentifierKey" : "949A497AD58BBC546FD1EE12E5A0F3097B199148"
+    }
+  ]
+}

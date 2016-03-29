@@ -1,5 +1,9 @@
 
-import UIKit
+#if os(iOS)
+	import UIKit
+#elseif os(OSX)
+	import Cocoa
+#endif
 
 //completion for DribbbleAuth
 typealias DribbbleAuthCompletion = (NSError?)->Void
@@ -7,6 +11,7 @@ typealias DribbbleAuthCompletion = (NSError?)->Void
 //completion for all DribbbleApi service methods
 typealias DribbbleApiCompletion = (result:DribbbleApiResult)->Void
 
+//generic error for api errors
 let DribbbleErrorDomain:String = "com.dribbble.Error"
 enum DribbbleErrorCode:Int {
     case APIError
@@ -22,7 +27,7 @@ enum DribbbleAuthScopes:String {
 	case Upload
 }
 
-//Result struct passed to all your DribbbleApiCompletion callbacks.
+//Result passed to all your DribbbleApiCompletion callbacks.
 class DribbbleApiResult : NSObject {
 	var error:NSError?
 	var responseStatusCode:Int?
@@ -30,6 +35,7 @@ class DribbbleApiResult : NSObject {
 	var responseData:NSData?
 	var decodedJSON:AnyObject?
 	init(error:NSError?, responseStatusCode:Int?, response:NSHTTPURLResponse?, responseData:NSData?, decodedJSON:AnyObject?) {
+		super.init()
 		self.error = error
 		self.responseStatusCode = responseStatusCode
 		self.response = response
@@ -38,8 +44,7 @@ class DribbbleApiResult : NSObject {
 	}
 }
 
-//DribbbleAuth is used for authentication against dribbble OAuth
-//and provided as a parameter to DribbbleApi instances.
+//use DribbbleAuth to authenticate against dribbble oauth.
 class DribbbleAuth : NSObject {
 	
 	private var clientId:String?
@@ -60,7 +65,9 @@ class DribbbleAuth : NSObject {
 		self.clientSecret = clientSecret
 		self.token = token
 		if token == nil {
-			self.token = NSUserDefaults.standardUserDefaults().objectForKey("token_\(clientId)") as? String
+			if let savedToken = NSUserDefaults.standardUserDefaults().objectForKey("token_\(clientId)") as? String {
+				self.token = savedToken
+			}
 		}
 	}
 	
@@ -72,11 +79,19 @@ class DribbbleAuth : NSObject {
 			authURL += scope.rawValue.lowercaseString + "+"
 		}
 		let url = NSURL(string: authURL)
+		#if os(iOS)
 		UIApplication.sharedApplication().openURL(url!)
+		#elseif os(OSX)
+		NSWorkspace.sharedWorkspace().openURL(url!)
+		#endif
 	}
 	
-	//call with the callback from dribbble, in application:handleOpenURL:
+	//call with the callback from dribbble.
+	//requires you to add a custom URL to plist.
+	//for iOS: use application:handleOpenURL: in AppDelegate.m
+	//for Mac: use NSApppleEventManager.setEventHandler to register for a URL callback
 	func handleAuthCallbackWithURL(url:NSURL) {
+		
 		//extract code from url
 		let components = NSURLComponents(string: url.absoluteString)
 		var code:String?
@@ -87,7 +102,7 @@ class DribbbleAuth : NSObject {
 		}
 		
 		//check if we have a code
-		if code == nil {
+		guard code != nil else {
 			let userInfo = ["Error":"No code parameter in callback"]
 			let error = NSError(domain: DribbbleErrorDomain, code: DribbbleErrorCode.APIError.rawValue, userInfo:userInfo)
 			self.authCompletion(error)
@@ -169,7 +184,7 @@ class DribbbleApi : NSObject {
 	
 	private var auth:DribbbleAuth;
 	
-    //optional init, returns nil in case the dribbbleAuth isn't authenticated
+	//optional init, returns nil in case the dribbbleAuth isn't authenticated
 	init?(withDribbbleAuth dribbbleAuth:DribbbleAuth) {
 		self.auth = dribbbleAuth
 		super.init()
@@ -268,45 +283,45 @@ class DribbbleApi : NSObject {
 	
 	func handleAPIRequestResponse(data:NSData?, response:NSURLResponse?, error:NSError?, completion:DribbbleApiCompletion) {
 		//setup a result struct
-		let httpResponse = response as! NSHTTPURLResponse
-		let headers = httpResponse.allHeaderFields
-		let result = DribbbleApiResult(error: error, responseStatusCode: httpResponse.statusCode, response: httpResponse, responseData: data, decodedJSON: nil)
+		let httpResponse = response as? NSHTTPURLResponse
+		let headers = httpResponse?.allHeaderFields
+		let resultStruct = DribbbleApiResult(error: error, responseStatusCode: httpResponse?.statusCode, response: httpResponse, responseData: data, decodedJSON: nil)
 		
 		//check for error
-		if error != nil {
-            completion(result: result)
+		guard error == nil else {
+			completion(result: resultStruct)
 			return
 		}
 		
 		//if result is json decode it
-		if let contentType = headers["Content-Type"] as? String {
+		if let contentType = headers?["Content-Type"] as? String {
 			if contentType.containsString("application/json") {
 				//get json results
 				var results:AnyObject?
 				do {
 					try results = NSJSONSerialization.JSONObjectWithData(data!, options: NSJSONReadingOptions.AllowFragments)
-					result.decodedJSON = results
+					resultStruct.decodedJSON = results
 				} catch let error as NSError {
-					result.error = error
-                    completion(result: result)
+					resultStruct.error = error
+					completion(result: resultStruct)
 					return
 				}
                 
 				//check for custom error in json response
 				if let message = results?["message"] as? String {
-                    var userInfo:[String:AnyObject] = ["message":message]
-                    if let errors = results?["errors"] {
-                        userInfo["errors"] = errors
-                    }
-                    let error = NSError(domain: DribbbleErrorDomain, code: DribbbleErrorCode.APIError.rawValue , userInfo: userInfo)
-					result.error = error
-                    completion(result: result)
+					var userInfo:[String:AnyObject] = ["message":message]
+					if let errors = results?["errors"] {
+						userInfo["errors"] = errors
+					}
+					let error = NSError(domain: DribbbleErrorDomain, code: DribbbleErrorCode.APIError.rawValue , userInfo: userInfo)
+					resultStruct.error = error
+					completion(result: resultStruct)
 					return
 				}
 			}
 		}
 		
-		completion(result: result)
+		completion(result: resultStruct)
 	}
 	
 	//MARK: Buckets - http://developer.dribbble.com/v1/buckets/
@@ -576,6 +591,39 @@ class DribbbleApi : NSObject {
 	}
 }
 
+//Subclass a DribbbleShotsCollection to load more
+//content and append to a collection.
 class DribbbleShotsCollection : NSObject {
 	
+	private var dribbble:DribbbleApi
+	
+	var data:[AnyObject?]?
+	var page:Int = 1
+	
+	//override to change parameters
+	var parameters:[String:String] {
+		get {
+			return ["page":String(page)]
+		}
+	}
+	
+	init(dribbble:DribbbleApi) {
+		self.dribbble = dribbble
+	}
+	
+	func loadContentWithCompletion(completion:DribbbleApiCompletion) {
+		print("overload DribbbleShotsCollection.load()")
+	}
+	
+	func incrementPage() {
+		page += 1
+	}
+	
+	func addContent(content:[AnyObject?]?) {
+		if data == nil {
+			data = content
+		} else {
+			data! += content!
+		}
+	}
 }
