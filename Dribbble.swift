@@ -23,12 +23,19 @@ enum DribbbleAuthScopes:String {
 }
 
 //Result struct passed to all your DribbbleApiCompletion callbacks.
-struct DribbbleApiResult {
+class DribbbleApiResult : NSObject {
 	var error:NSError?
 	var responseStatusCode:Int?
 	var response:NSHTTPURLResponse?
 	var responseData:NSData?
 	var decodedJSON:AnyObject?
+	init(error:NSError?, responseStatusCode:Int?, response:NSHTTPURLResponse?, responseData:NSData?, decodedJSON:AnyObject?) {
+		self.error = error
+		self.responseStatusCode = responseStatusCode
+		self.response = response
+		self.responseData = responseData
+		self.decodedJSON = decodedJSON
+	}
 }
 
 //DribbbleAuth is used for authentication against dribbble OAuth
@@ -53,9 +60,7 @@ class DribbbleAuth : NSObject {
 		self.clientSecret = clientSecret
 		self.token = token
 		if token == nil {
-			if let savedToken = NSUserDefaults.standardUserDefaults().objectForKey("token_\(clientId)") as? String {
-				self.token = savedToken
-			}
+			self.token = NSUserDefaults.standardUserDefaults().objectForKey("token_\(clientId)") as? String
 		}
 	}
 	
@@ -265,11 +270,11 @@ class DribbbleApi : NSObject {
 		//setup a result struct
 		let httpResponse = response as! NSHTTPURLResponse
 		let headers = httpResponse.allHeaderFields
-		var resultStruct = DribbbleApiResult(error: error, responseStatusCode: httpResponse.statusCode, response: httpResponse, responseData: data, decodedJSON: nil)
+		let result = DribbbleApiResult(error: error, responseStatusCode: httpResponse.statusCode, response: httpResponse, responseData: data, decodedJSON: nil)
 		
 		//check for error
 		if error != nil {
-            completion(result: resultStruct)
+            completion(result: result)
 			return
 		}
 		
@@ -280,10 +285,10 @@ class DribbbleApi : NSObject {
 				var results:AnyObject?
 				do {
 					try results = NSJSONSerialization.JSONObjectWithData(data!, options: NSJSONReadingOptions.AllowFragments)
-					resultStruct.decodedJSON = results
+					result.decodedJSON = results
 				} catch let error as NSError {
-					resultStruct.error = error
-                    completion(result: resultStruct)
+					result.error = error
+                    completion(result: result)
 					return
 				}
                 
@@ -294,14 +299,14 @@ class DribbbleApi : NSObject {
                         userInfo["errors"] = errors
                     }
                     let error = NSError(domain: DribbbleErrorDomain, code: DribbbleErrorCode.APIError.rawValue , userInfo: userInfo)
-					resultStruct.error = error
-                    completion(result: resultStruct)
+					result.error = error
+                    completion(result: result)
 					return
 				}
 			}
 		}
 		
-		completion(result: resultStruct)
+		completion(result: result)
 	}
 	
 	//MARK: Buckets - http://developer.dribbble.com/v1/buckets/
