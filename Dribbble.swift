@@ -73,8 +73,8 @@ class DribbbleAuth : NSObject {
 	
 	//call to start authentication process
 	func authenticateWithScopes(scopes:Set<DribbbleAuthScopes>, completion:DribbbleAuthCompletion) {
-		self.authCompletion = completion
-		var authURL = "https://dribbble.com/oauth/authorize?client_id=\(self.clientId!)&scope=";
+		authCompletion = completion
+		var authURL = "https://dribbble.com/oauth/authorize?client_id=\(clientId!)&scope=";
 		for scope in scopes {
 			authURL += scope.rawValue.lowercaseString + "+"
 		}
@@ -105,7 +105,7 @@ class DribbbleAuth : NSObject {
 		guard code != nil else {
 			let userInfo = ["Error":"No code parameter in callback"]
 			let error = NSError(domain: DribbbleErrorDomain, code: DribbbleErrorCode.APIError.rawValue, userInfo:userInfo)
-			self.authCompletion(error)
+			authCompletion(error)
 			return
 		}
 		
@@ -115,7 +115,7 @@ class DribbbleAuth : NSObject {
 		do {
 			json = try NSJSONSerialization.dataWithJSONObject(params, options: NSJSONWritingOptions())
 		} catch let error as NSError {
-			self.authCompletion(error)
+			authCompletion(error)
 			return
 		}
 		
@@ -186,7 +186,7 @@ class DribbbleApi : NSObject {
 	
 	//optional init, returns nil in case the dribbbleAuth isn't authenticated
 	init?(withDribbbleAuth dribbbleAuth:DribbbleAuth) {
-		self.auth = dribbbleAuth
+		auth = dribbbleAuth
 		super.init()
 		if !dribbbleAuth.isAuthenticated() {
 			return nil
@@ -200,7 +200,7 @@ class DribbbleApi : NSObject {
 				newEndpoint += "&" + key + "=" + val
 			}
 		}
-		newEndpoint += "&access_token=" + self.auth.token!
+		newEndpoint += "&access_token=" + auth.token!
 		let url = NSURL(string: newEndpoint)!
 		let request = NSMutableURLRequest(URL: url)
 		request.HTTPBody = rawBody
@@ -209,7 +209,7 @@ class DribbbleApi : NSObject {
 	}
 	
 	func makeFormEncodedJSONRequest(forAPIEndpoint endpoint:String, method:String, body:NSData) -> NSURLRequest {
-		let newEndpoint = endpoint + "?access_token=" + self.auth.token!
+		let newEndpoint = endpoint + "?access_token=" + auth.token!
 		let url = NSURL(string: newEndpoint)!
 		let request = NSMutableURLRequest(URL: url)
 		request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
@@ -219,7 +219,7 @@ class DribbbleApi : NSObject {
 	}
 	
 	func makeMultipartRequest(forAPIEndpoint endpoint:String, method:String, formParams:[String:AnyObject]) -> NSURLRequest {
-		let newEndpoint = endpoint + "?access_token=" + self.auth.token!
+		let newEndpoint = endpoint + "?access_token=" + auth.token!
 		let url = NSURL(string: newEndpoint)!
 		let request = NSMutableURLRequest(URL: url)
 		let postData = NSMutableData()
@@ -596,14 +596,14 @@ class DribbbleApi : NSObject {
 class DribbbleShotsCollection : NSObject {
 	
 	private var dribbble:DribbbleApi
+	private var page:Int = 1
 	
 	var data:[AnyObject?]?
-	var page:Int = 1
 	
 	//override to change parameters
 	var parameters:[String:String] {
 		get {
-			return ["page":String(page)]
+			return ["page":"\(page)"]
 		}
 	}
 	
@@ -612,7 +612,7 @@ class DribbbleShotsCollection : NSObject {
 	}
 	
 	func loadContentWithCompletion(completion:DribbbleApiCompletion) {
-		print("overload DribbbleShotsCollection.load()")
+		print("override DribbbleShotsCollection.load()")
 	}
 	
 	func incrementPage() {
