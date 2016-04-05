@@ -6,21 +6,21 @@
 #endif
 
 //completion for DribbbleAuth
-typealias DribbbleAuthCompletion = (NSError?)->Void
+public typealias DribbbleAuthCompletion = (NSError?)->Void
 
 //completion for all DribbbleApi service methods
-typealias DribbbleApiCompletion = (result:DribbbleApiResult)->Void
+public typealias DribbbleApiCompletion = (result:DribbbleApiResult)->Void
 
 //generic error for api errors
-let DribbbleErrorDomain:String = "com.dribbble.Error"
-enum DribbbleErrorCode:Int {
+public let DribbbleErrorDomain:String = "com.dribbble.Error"
+public enum DribbbleErrorCode:Int {
     case APIError
 }
 
 //Use with DribbbleAuth.authenticateWithScopes.
 //DribbbleApi requires different auth scopes depending on what
 //you're trying to do. http://developer.dribbble.com/v1/oauth/#scopes
-enum DribbbleAuthScopes:String {
+public enum DribbbleAuthScopes:String {
 	case Public
 	case Write
 	case Comment
@@ -28,7 +28,7 @@ enum DribbbleAuthScopes:String {
 }
 
 //Result passed to all your DribbbleApiCompletion callbacks.
-class DribbbleApiResult : NSObject {
+public class DribbbleApiResult : NSObject {
 	var error:NSError?
 	var responseStatusCode:Int?
 	var response:NSHTTPURLResponse?
@@ -45,7 +45,7 @@ class DribbbleApiResult : NSObject {
 }
 
 //use DribbbleAuth to authenticate against dribbble oauth.
-class DribbbleAuth : NSObject {
+public class DribbbleAuth : NSObject {
 	
 	private var clientId:String?
 	private var clientSecret:String?
@@ -180,7 +180,7 @@ class DribbbleAuth : NSObject {
 //For information about what's in the result callback refer to the dribbble api docs for each specific endpoint.
 //You can use the properties on DribbbleApiResult passed to your callbacks to check for error conditions, and
 //get json, or raw http response codes.
-class DribbbleApi : NSObject {
+public class DribbbleApi : NSObject {
 	
 	private var auth:DribbbleAuth;
 	
@@ -576,7 +576,7 @@ class DribbbleApi : NSObject {
 		sendSimpleRequest("users/\(username)/shots", method: "GET", completion: completion)
 	}
 	
-	func listAuthenticatedUsersShots(completion:DribbbleApiCompletion) {
+	func listAuthedUsersShots(completion:DribbbleApiCompletion) {
 		sendSimpleRequest("user/shots", method: "GET", completion: completion)
 	}
 	
@@ -586,19 +586,19 @@ class DribbbleApi : NSObject {
 		sendSimpleRequest("users/\(username)/teams", method: "GET", completion: completion)
 	}
 	
-	func listAuthedUsersTeams(username:String, completion:DribbbleApiCompletion) {
+	func listAuthedUsersTeams(completion:DribbbleApiCompletion) {
 		sendSimpleRequest("user/teams", method: "GET", completion: completion)
 	}
 }
 
 //Subclass a DribbbleShotsCollection to load more
 //content and append to a collection.
-class DribbbleShotsCollection : NSObject {
+public class DribbbleShotsCollection : NSObject {
 	
 	private var dribbble:DribbbleApi
 	private var page:Int = 1
 	
-	var data:[AnyObject?]?
+	public var data:[AnyObject?]?
 	
 	//override to change parameters
 	var parameters:[String:String] {
