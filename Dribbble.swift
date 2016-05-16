@@ -5,21 +5,32 @@
 	import Cocoa
 #endif
 
-//completion for DribbbleAuth
+/// Completion for DribbbleAuth authentication process.
 public typealias DribbbleAuthCompletion = (NSError?)->Void
 
-//completion for all DribbbleApi service methods
+/// Completion for all DribbbleApi service methods.
 public typealias DribbbleApiCompletion = (result:DribbbleApiResult)->Void
 
-//generic error for api errors
+/// Domain for custom errors from this class
 public let DribbbleErrorDomain:String = "com.dribbble.Error"
+
+/**
+Dribbble error codes
+
+- APIError:	Any API error
+*/
 public enum DribbbleErrorCode:Int {
     case APIError
 }
 
-//Use with DribbbleAuth.authenticateWithScopes.
-//DribbbleApi requires different auth scopes depending on what
-//you're trying to do. http://developer.dribbble.com/v1/oauth/#scopes
+/**
+DribbbleAuthScopes enum for oauth authentication scopes. http://developer.dribbble.com/v1/oauth/#scopes
+
+- Public:	Grants read-only access to public information. This is the default scope if no scope is provided.
+- Write:		Grants write access to user resources, except comments and shots.
+- Comment:	Grants full access to create, update, and delete comments.
+- Upload:	Grants full access to create, update, and delete shots and attachments.
+*/
 public enum DribbbleAuthScopes:String {
 	case Public
 	case Write
@@ -27,13 +38,24 @@ public enum DribbbleAuthScopes:String {
 	case Upload
 }
 
-//Result passed to all your DribbbleApiCompletion callbacks.
+/// DribbbleApiResult is a response object that wraps all possible objects passed back in your API call completions.
 public class DribbbleApiResult : NSObject {
+	
+	/// Error
 	var error:NSError?
+	
+	/// Shortcut for response status code
 	var responseStatusCode:Int?
+	
+	/// Full request response
 	var response:NSHTTPURLResponse?
+	
+	/// Raw response data
 	var responseData:NSData?
+	
+	/// If response is json, this is the decoded json
 	var decodedJSON:AnyObject?
+	
 	init(error:NSError?, responseStatusCode:Int?, response:NSHTTPURLResponse?, responseData:NSData?, decodedJSON:AnyObject?) {
 		super.init()
 		self.error = error
@@ -44,31 +66,51 @@ public class DribbbleApiResult : NSObject {
 	}
 }
 
-//use DribbbleAuth to authenticate against dribbble oauth.
+/// DribbblAuth class only handles the OAuth process of authentication with Dribbble API.
+/// You use one of these to authenticate against oauth, and pass to a DribbbleApi instance.
 public class DribbbleAuth : NSObject {
 	
+	/// api client id
 	private var clientId:String?
+	
+	/// api client secret
 	private var clientSecret:String?
+	
+	/// api token
 	private var token:String?
+	
+	/// auth process completion
 	private var authCompletion:DribbbleAuthCompletion!
 	
-	//default configured instance
-	static let _defaultInstance:DribbbleAuth = DribbbleAuth()
-	static func defaultInstance() -> DribbbleAuth {
-		return _defaultInstance
-	}
+	/// A default instance you can use from anywhere.
+	public static let defaultInstance:DribbbleAuth = {
+		let instance = DribbbleAuth()
+		return instance
+	}()
 	
-	//call to set clientId/clientSecret, optional token. If a previous token was
-	//received from a previous OAuth authentication, that will be restored for you
-	func restoreWithClientId(clientId:String, clientSecret:String, token:String? = nil) {
+	/**
+	Call this to set clientId and clientSecret. Token is an optional argument. Additionally
+	this will save any tokens you pass to NSUserDefaults using the clientId as the key. If you
+	pass nil for token, it will try and load a token from NSUserDefaults
+	
+	- parameter clientId:         api clientId
+	- parameter clientSecret:     api clientSecret
+	- parameter token:            api token
+	*/
+	func restoreWithClientId(clientId:String, clientSecret:String, token:String? = nil) -> Bool {
 		self.clientId = clientId
 		self.clientSecret = clientSecret
 		self.token = token
-		if token == nil {
+		if let token = token {
+			NSUserDefaults.standardUserDefaults().setObject(token, forKey: "token_\(self.clientId!)")
+			return true
+		} else {
 			if let savedToken = NSUserDefaults.standardUserDefaults().objectForKey("token_\(clientId)") as? String {
 				self.token = savedToken
+				return true
 			}
 		}
+		return false
 	}
 	
 	//call to start authentication process
