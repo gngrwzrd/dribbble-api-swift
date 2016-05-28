@@ -11,52 +11,72 @@ public typealias DribbbleAuthCompletion = (NSError?)->Void
 /// Completion for all DribbbleApi service methods.
 public typealias DribbbleApiCompletion = (result:DribbbleApiResult)->Void
 
-/// Domain for custom errors from this class
+/// Domain for custom errors from this class.
 public let DribbbleErrorDomain:String = "com.dribbble.Error"
 
 /**
-Dribbble error codes
+Dribbble error codes.
 
-- APIError:	Any API error
+- APIError:	Any API error.
 */
 public enum DribbbleErrorCode:Int {
     case APIError
 }
 
-/**
-DribbbleAuthScopes enum for oauth authentication scopes. http://developer.dribbble.com/v1/oauth/#scopes
-
-- Public:	Grants read-only access to public information. This is the default scope if no scope is provided.
-- Write:		Grants write access to user resources, except comments and shots.
-- Comment:	Grants full access to create, update, and delete comments.
-- Upload:	Grants full access to create, update, and delete shots and attachments.
-*/
+/// DribbbleAuthScopes enum for oauth authentication scopes. http://developer.dribbble.com/v1/oauth/#scopes
 public enum DribbbleAuthScopes:String {
+	
+	/// Grants read-only access to public information. This is the default scope if no scope is provided.
 	case Public
+	
+	/// Grants write access to user resources, except comments and shots.
 	case Write
+	
+	/// Grants full access to create, update, and delete comments.
 	case Comment
+	
+	/// Grants full access to create, update, and delete shots and attachments.
 	case Upload
 }
 
-/// DribbbleApiResult is a response object that wraps all possible objects passed back in your API call completions.
+/**
+The *DribbbleApiResult* is a response object that contains all possible objects passed
+back to your API call completions as a parameter to *DribbbleApiCompletion*.
+
+Generally you should check the API documentation for any method you're calling as some
+API responses use different mechanisms to describe an error. For example some methods
+use a responseStatusCode other than 200 to indicate error. Others will use a
+responseStatusCode of 200 but have a custom error in JSON.
+*/
 public class DribbbleApiResult : NSObject {
 	
 	/// Error
-	var error:NSError?
+	public var error:NSError?
 	
-	/// Shortcut for response status code
-	var responseStatusCode:Int?
+	/// Shortcut for HTTP response status code from the API.
+	public var responseStatusCode:Int?
 	
-	/// Full request response
-	var response:NSHTTPURLResponse?
+	/// Full request response.
+	public var response:NSHTTPURLResponse?
 	
-	/// Raw response data
-	var responseData:NSData?
+	/// Raw response data.
+	public var responseData:NSData?
 	
-	/// If response is json, this is the decoded json
-	var decodedJSON:AnyObject?
+	/// If response is json, this is the decoded json.
+	public var decodedJSON:AnyObject?
 	
-	init(error:NSError?, responseStatusCode:Int?, response:NSHTTPURLResponse?, responseData:NSData?, decodedJSON:AnyObject?) {
+	/**
+	Initialize a DribbbleApiResult.
+	
+	- parameter error:              NSError.
+	- parameter responseStatusCode: HTTP status code from response.
+	- parameter response:           NSHTTPURLResponse from the api call.
+	- parameter responseData:       Response data.
+	- parameter decodedJSON:        Optionally decoded JSON.
+	
+	- returns: A new instance of DribbbleApiResult.
+	*/
+	public init(error:NSError?, responseStatusCode:Int?, response:NSHTTPURLResponse?, responseData:NSData?, decodedJSON:AnyObject?) {
 		super.init()
 		self.error = error
 		self.responseStatusCode = responseStatusCode
@@ -66,8 +86,29 @@ public class DribbbleApiResult : NSObject {
 	}
 }
 
-/// DribbblAuth class only handles the OAuth process of authentication with Dribbble API.
-/// You use one of these to authenticate against oauth, and pass to a DribbbleApi instance.
+/**
+The *DribbblAuth* class handles the OAuth authentication process with Dribbble's API.
+You pass an instance of this to a *DribbbleApi* instance before you can call API methods.
+
+You need to call *restoreWithClientId(_:clientSecret:token:)* in order to initialize
+the default instance properly.
+
+    DribbbleAuth.defaultInstance.restoreWithClientId("myClientId",clientSecret:"myClientSecret")
+
+Or you can initialize a new instance for some other use.
+
+    let auth = DribbbleAuth()
+    auth.restoreWithClientId("myClientId",clientSecret:"myClientSecret")
+
+Optionally you can pass an already authenticated OAuth token if you have one available.
+
+    let auth = DribbbleAuth()
+    auth.restoreWithClientId("myClientId",clientSecret:"myClientSecret",token:"myToken")
+
+After you've authenticated with OAuth, the token is saved in *NSUserDefaults*. Future calls to
+*restoreWithClientId(_:clientSecret:)* will automatically load the saved token using *clientId*
+as the key.
+*/
 public class DribbbleAuth : NSObject {
 	
 	/// api client id
@@ -82,7 +123,7 @@ public class DribbbleAuth : NSObject {
 	/// auth process completion
 	private var authCompletion:DribbbleAuthCompletion!
 	
-	/// A default instance you can use from anywhere.
+	/// A default singleton instance
 	public static let defaultInstance:DribbbleAuth = {
 		let instance = DribbbleAuth()
 		return instance
@@ -91,13 +132,13 @@ public class DribbbleAuth : NSObject {
 	/**
 	Call this to set clientId and clientSecret. Token is an optional argument. Additionally
 	this will save any tokens you pass to NSUserDefaults using the clientId as the key. If you
-	pass nil for token, it will try and load a token from NSUserDefaults
+	pass nil for token, it will try and load a token from NSUserDefaults with clientId.
 	
-	- parameter clientId:         api clientId
-	- parameter clientSecret:     api clientSecret
-	- parameter token:            api token
+	- parameter clientId:         Dribbble API clientId
+	- parameter clientSecret:     Dribbble API clientSecret
+	- parameter token:            (Optional) API token
 	*/
-	func restoreWithClientId(clientId:String, clientSecret:String, token:String? = nil) -> Bool {
+	public func restoreWithClientId(clientId:String, clientSecret:String, token:String? = nil) -> Bool {
 		self.clientId = clientId
 		self.clientSecret = clientSecret
 		self.token = token
@@ -113,8 +154,23 @@ public class DribbbleAuth : NSObject {
 		return false
 	}
 	
-	//call to start authentication process
-	func authenticateWithScopes(scopes:Set<DribbbleAuthScopes>, completion:DribbbleAuthCompletion) {
+	/**
+	Call to start authentication process. On iOS Safari will open, on Mac the users' default browser
+	will open to Dribbble prompting them to login. Your app needs to be registered for a custom URL
+	callback.
+	
+	For iOS use:
+	
+	    application:handleOpenURL: in AppDelegate.m.
+	
+	For Mac use:
+	
+	    NSApppleEventManager.setEventHandler to register for a URL callback
+	
+	- parameter scopes:     A Set containing DribbbleAuthScopes enum values
+	- parameter completion: A callback of type DribbbleAuthCompletion
+	*/
+	public func authenticateWithScopes(scopes:Set<DribbbleAuthScopes>, completion:DribbbleAuthCompletion) {
 		authCompletion = completion
 		var authURL = "https://dribbble.com/oauth/authorize?client_id=\(clientId!)&scope=";
 		for scope in scopes {
@@ -128,11 +184,15 @@ public class DribbbleAuth : NSObject {
 		#endif
 	}
 	
-	//call with the callback from dribbble.
-	//requires you to add a custom URL to plist.
-	//for iOS: use application:handleOpenURL: in AppDelegate.m
-	//for Mac: use NSApppleEventManager.setEventHandler to register for a URL callback
-	func handleAuthCallbackWithURL(url:NSURL) {
+	/**
+	Call this to finish the OAuth authentication process. The callback URL comes from
+	Dribbble and should contain a "code" parameter.
+	
+	http://developer.dribbble.com/v1/oauth/
+	
+	- parameter url: The callback URL received by your application.
+	*/
+	public func handleAuthCallbackWithURL(url:NSURL) {
 		
 		//extract code from url
 		let components = NSURLComponents(string: url.absoluteString)
@@ -212,27 +272,38 @@ public class DribbbleAuth : NSObject {
 		task.resume()
 	}
 	
-	//check if a token is available
-	func isAuthenticated() -> Bool {
+	/**
+	Check if a token is available, meaning you're authenticated.
+	
+	- returns: Bool if authenticated or not.
+	*/
+	public func isAuthenticated() -> Bool {
 		return self.token != nil
 	}
 }
 
-//DribbbleApi to make api calls. Methods are named according to the API here http://developer.dribbble.com/v1/
-//For information about what's in the result callback refer to the dribbble api docs for each specific endpoint.
-//You can use the properties on DribbbleApiResult passed to your callbacks to check for error conditions, and
-//get json, or raw http response codes.
+/// The DribbbleApi class is for making API calls. You initialize this with an instance of DribbbleAuth.
+/// Methods are named according to the API here http://developer.dribbble.com/v1/.
+/// For information about what's in the result callback refer to the Dribbble API docs for each specific endpoint.
 public class DribbbleApi : NSObject {
 	
-	private var auth:DribbbleAuth;
+	/// DribbbleAuth instance.
+	var auth:DribbbleAuth;
 	
-	//optional init, returns nil in case the dribbbleAuth isn't authenticated
-	init?(withDribbbleAuth dribbbleAuth:DribbbleAuth) {
-		auth = dribbbleAuth
-		super.init()
+	/**
+	Initialize a DribbbleApi. This is a failable initializer - if your instance of dribbbleAuth is not
+	authenticated it will fail.
+	
+	- parameter dribbbleAuth: An authenticated instance of DribbbleAuth
+	
+	- returns: self or nil
+	*/
+	public init?(withDribbbleAuth dribbbleAuth:DribbbleAuth) {
 		if !dribbbleAuth.isAuthenticated() {
 			return nil
 		}
+		auth = dribbbleAuth
+		super.init()
 	}
 	
 	func makeRequest(forAPIEndpoint endpoint:String, method:String, queryParams:[String:String]? = nil, rawBody:NSData? = nil) -> NSURLRequest {
@@ -368,304 +439,353 @@ public class DribbbleApi : NSObject {
 	
 	//MARK: Buckets - http://developer.dribbble.com/v1/buckets/
 	
-	func getABucket(bucketId:String, completion:DribbbleApiCompletion) {
+	public func getABucket(bucketId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("buckets/\(bucketId)", method: "GET", completion: completion)
 	}
 	
-	func createABucket(parameters:[String:String], completion:DribbbleApiCompletion) throws {
+	public func createABucket(parameters:[String:String], completion:DribbbleApiCompletion) throws {
 		try sendFormEncodedJSONRequest("buckets", method: "POST", parameters: parameters, completion: completion)
 	}
 	
-	func updateABucket(parameters:[String:String], completion:DribbbleApiCompletion) throws {
+	public func updateABucket(parameters:[String:String], completion:DribbbleApiCompletion) throws {
 		try sendFormEncodedJSONRequest("buckets", method: "PUT", parameters: parameters, completion: completion)
 	}
 	
-	func deleteABucket(bucketId:String, completion:DribbbleApiCompletion) {
+	public func deleteABucket(bucketId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("buckets/\(bucketId)", method: "DELETE", completion: completion)
 	}
 	
 	//MARK: Buckets/Shots - http://developer.dribbble.com/v1/buckets/shots/
 	
-	func listShotsForABucket(bucketId:String, completion:DribbbleApiCompletion) {
+	public func listShotsForABucket(bucketId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("buckets/\(bucketId)/shots", method: "GET", completion: completion)
 	}
 	
-	func addAShotToABucket(bucketId:String, parameters:[String:String], completion:DribbbleApiCompletion) throws {
+	public func addAShotToABucket(bucketId:String, parameters:[String:String], completion:DribbbleApiCompletion) throws {
 		try sendFormEncodedJSONRequest("buckets/\(bucketId)/shots", method: "PUT", parameters: parameters, completion: completion)
 	}
 	
-	func removeAShotFromABucket(bucketId:String, parameters:[String:String], completion:DribbbleApiCompletion) throws {
+	public func removeAShotFromABucket(bucketId:String, parameters:[String:String], completion:DribbbleApiCompletion) throws {
 		try sendFormEncodedJSONRequest("buckets/\(bucketId)/shots", method: "DELETE", parameters: parameters, completion: completion)
 	}
 	
 	//MARK: Projects - http://developer.dribbble.com/v1/projects/
 	
-	func getAProject(projectId:String, completion:DribbbleApiCompletion) {
+	public func getAProject(projectId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("projects/\(projectId)", method: "GET", completion: completion)
 	}
 	
 	//MARK: Projects/Shots - http://developer.dribbble.com/v1/projects/shots/
 	
-	func listShotsForAProject(projectId:String, completion:DribbbleApiCompletion) {
+	public func listShotsForAProject(projectId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("projects/\(projectId)/shots", method: "GET", completion: completion)
 	}
 	
 	//MARK: Shots - http://developer.dribbble.com/v1/shots/
 	
-	func listShots(parameters:[String:String]?, completion:DribbbleApiCompletion) {
+	public func listShots(parameters:[String:String]?, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("shots", method: "GET", queryParams: parameters, completion: completion)
 	}
 	
-	func getAShot(shotId:String, completion:DribbbleApiCompletion) {
+	public func getAShot(shotId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("shots\(shotId)", method: "GET", completion: completion)
 	}
 	
-	func createAShot(parameters:[String:AnyObject], completion:DribbbleApiCompletion) {
+	public func createAShot(parameters:[String:AnyObject], completion:DribbbleApiCompletion) {
 		sendMultipartRequest("shots", method: "POST", formParams: parameters, completion: completion)
 	}
 	
-	func updateAShot(shotId:String, parameters:[String:String], completion:DribbbleApiCompletion) throws {
+	public func updateAShot(shotId:String, parameters:[String:String], completion:DribbbleApiCompletion) throws {
 		try sendFormEncodedJSONRequest("shots/\(shotId)", method: "PUT", parameters: parameters, completion: completion)
 	}
 	
-	func deleteAShot(shotId:String, completion:DribbbleApiCompletion) {
+	public func deleteAShot(shotId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("shots/\(shotId)", method: "DELETE", completion: completion)
 	}
 	
 	//MARK: Shots/Attachments - http://developer.dribbble.com/v1/shots/attachments/
 	
-	func listAttachmentsForShot(shotId:String, completion:DribbbleApiCompletion) {
+	public func listAttachmentsForShot(shotId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("shots/\(shotId)/attachments", method: "GET", completion: completion)
 	}
 	
-	func createAttachment(shotId:String, parameters:[String:AnyObject], completion:DribbbleApiCompletion) {
+	public func createAttachment(shotId:String, parameters:[String:AnyObject], completion:DribbbleApiCompletion) {
 		sendMultipartRequest("shots/\(shotId)/attachments", method: "POST", formParams: parameters, completion: completion)
 	}
 	
-	func getASingleAttachment(shotId:String, attachmentId:String, completion:DribbbleApiCompletion) {
+	public func getASingleAttachment(shotId:String, attachmentId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("shots/\(shotId)/attachments/\(attachmentId)", method: "GET", completion: completion)
 	}
 	
-	func deleteAnAttachment(shotId:String, attachmentId:String, completion:DribbbleApiCompletion) {
+	public func deleteAnAttachment(shotId:String, attachmentId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("shots/\(shotId)/attachments/\(attachmentId)", method: "DELETE", completion: completion)
 	}
 	
 	//MARK: Shots/Buckets - http://developer.dribbble.com/v1/shots/buckets/
 	
-	func listBucketsForAShot(shotId:String, completion:DribbbleApiCompletion) {
+	public func listBucketsForAShot(shotId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("shots/\(shotId)/buckets", method: "GET", completion: completion)
 	}
 	
 	//MARK: Shots/Comments - http://developer.dribbble.com/v1/shots/comments/
 	
-	func listCommentsForAShot(shotId:String, completion:DribbbleApiCompletion) {
+	public func listCommentsForAShot(shotId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("shots/\(shotId)/comments", method: "GET", completion: completion)
 	}
 	
-	func listLikesForAComment(shotId:String, commentId:String, completion:DribbbleApiCompletion) {
+	public func listLikesForAComment(shotId:String, commentId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("shots/\(shotId)/comments/\(commentId)/likes", method: "GET", completion: completion)
 	}
 	
-	func createAComment(shotId:String, parameters:[String:String], completion:DribbbleApiCompletion) throws {
+	public func createAComment(shotId:String, parameters:[String:String], completion:DribbbleApiCompletion) throws {
 		try sendFormEncodedJSONRequest("shots/\(shotId)/comments", method: "POST", parameters: parameters, completion: completion)
 	}
 	
-	func getASingleComment(shotId:String, commentId:String, completion:DribbbleApiCompletion) {
+	public func getASingleComment(shotId:String, commentId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("shots/\(shotId)/comments/\(commentId)", method: "GET", completion: completion)
 	}
 	
-	func updateAComment(shotId:String, commentId:String, parameters:[String:String], completion:DribbbleApiCompletion) throws {
+	public func updateAComment(shotId:String, commentId:String, parameters:[String:String], completion:DribbbleApiCompletion) throws {
 		try sendFormEncodedJSONRequest("shots/\(shotId)/comments/\(commentId)", method: "PUT", parameters: parameters, completion: completion)
 	}
 	
-	func deleteAComment(shotId:String, commentId:String, completion:DribbbleApiCompletion) {
+	public func deleteAComment(shotId:String, commentId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("shots/\(shotId)/comments/\(commentId)", method: "DELETE", completion: completion)
 	}
 	
-	func checkIfYouLikeAComment(shotId:String, commentId:String, completion:DribbbleApiCompletion) {
+	public func checkIfYouLikeAComment(shotId:String, commentId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("shots/\(shotId)/comments/\(commentId)/like", method: "GET", completion: completion)
 	}
 	
-	func likeAComment(shotId:String, commentId:String, completion:DribbbleApiCompletion) {
+	public func likeAComment(shotId:String, commentId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("shots/\(shotId)/comments/\(commentId)/like", method: "POST", completion: completion)
 	}
 	
-	func unlikeAComment(shotId:String, commentId:String, completion:DribbbleApiCompletion) {
+	public func unlikeAComment(shotId:String, commentId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("shots/\(shotId)/comments/\(commentId)/unlike", method: "DELETE", completion: completion)
 	}
 	
 	//MARK: Shots/Likes - http://developer.dribbble.com/v1/shots/likes/
 	
-	func listLikesForAShot(shotId:String, completion:DribbbleApiCompletion) {
+	public func listLikesForAShot(shotId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("shots/\(shotId)/likes", method: "GET", completion: completion)
 	}
 	
-	func checkIfYouLikeAShot(shotId:String, completion:DribbbleApiCompletion) {
+	public func checkIfYouLikeAShot(shotId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("shots/\(shotId)/like", method: "GET", completion: completion)
 	}
 	
-	func likeShot(shotId:String, completion:DribbbleApiCompletion) {
+	public func likeShot(shotId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("shots/\(shotId)/like", method: "POST", completion: completion)
 	}
 	
-	func unlikeShot(shotId:String, completion:DribbbleApiCompletion) {
+	public func unlikeShot(shotId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("shots/\(shotId)/like", method: "DELETE", completion: completion)
 	}
 	
 	//MARK: Shots/Projects - http://developer.dribbble.com/v1/shots/projects/
 	
-	func listProjectsForAShot(shotId:String, completion:DribbbleApiCompletion) {
+	public func listProjectsForAShot(shotId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("shots/\(shotId)/projects", method: "GET", completion: completion)
 	}
 	
 	//MARK: Shots/Rebounds http://developer.dribbble.com/v1/shots/rebounds/
 	
-	func listReboundsForAShot(shotId:String, completion:DribbbleApiCompletion) {
+	public func listReboundsForAShot(shotId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("shots/\(shotId)/rebounds", method: "GET", completion: completion)
 	}
 	
 	//MARK: Teams/Members - http://developer.dribbble.com/v1/teams/members/
 	
-	func listATeamsMembers(teamId:String, completion:DribbbleApiCompletion) {
+	public func listATeamsMembers(teamId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("teams/\(teamId)/members", method: "GET", completion: completion)
 	}
 	
-	func listShotsForATeam(teamId:String, completion:DribbbleApiCompletion) {
+	public func listShotsForATeam(teamId:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("teams/\(teamId)/shots", method: "GET", completion: completion)
 	}
 	
 	//MARK: Users - http://developer.dribbble.com/v1/users/
 	
-	func getASingleUser(username:String, completion:DribbbleApiCompletion) {
+	public func getASingleUser(username:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("users/\(username)", method: "GET", completion: completion)
 	}
 	
-	func getTheAuthenticatedUser(completion:DribbbleApiCompletion) {
+	public func getTheAuthenticatedUser(completion:DribbbleApiCompletion) {
 		sendSimpleRequest("user", method: "GET", completion: completion)
 	}
 	
 	//MARK: Users/Buckets - http://developer.dribbble.com/v1/users/buckets/
 	
-	func listAUsersBuckets(username:String, completion:DribbbleApiCompletion) {
+	public func listAUsersBuckets(username:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("users/\(username)/buckets", method: "GET", completion: completion)
 	}
 	
-	func listAuthedUsersBuckets(completion:DribbbleApiCompletion) {
+	public func listAuthedUsersBuckets(completion:DribbbleApiCompletion) {
 		sendSimpleRequest("user/buckets", method: "GET", completion: completion)
 	}
 	
 	//MARK: Users/Followers - http://developer.dribbble.com/v1/users/followers/
 	
-	func listFollowersOfAUser(username:String, completion:DribbbleApiCompletion) {
+	public func listFollowersOfAUser(username:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("users/\(username)/followers", method: "GET", completion: completion)
 	}
 	
-	func listAuthedUsersFollowers(completion:DribbbleApiCompletion) {
+	public func listAuthedUsersFollowers(completion:DribbbleApiCompletion) {
 		sendSimpleRequest("user/followers", method: "GET", completion: completion)
 	}
 	
-	func listUsersFollowedByAUser(username:String, completion:DribbbleApiCompletion) {
+	public func listUsersFollowedByAUser(username:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("users/\(username)/following", method: "GET", completion: completion)
 	}
 	
-	func listAuthedUserFollowing(completion:DribbbleApiCompletion) {
+	public func listAuthedUserFollowing(completion:DribbbleApiCompletion) {
 		sendSimpleRequest("user/following", method: "GET", completion: completion)
 	}
 	
-	func listShotsForUsersFollowedByAuthedUser(completion:DribbbleApiCompletion) {
+	public func listShotsForUsersFollowedByAuthedUser(completion:DribbbleApiCompletion) {
 		sendSimpleRequest("user/following/shots", method: "GET", completion: completion)
 	}
 	
-	func checkIfYouAreFollowingAUser(username:String, completion:DribbbleApiCompletion) {
+	public func checkIfYouAreFollowingAUser(username:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("user/following/\(username)", method: "GET", completion: completion)
 	}
 	
-	func checkIfOneUserIsFollowingAnother(username:String, targetUsername:String, completion:DribbbleApiCompletion) {
+	public func checkIfOneUserIsFollowingAnother(username:String, targetUsername:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("user/\(username)/following\(targetUsername)", method: "GET", completion: completion)
 	}
 	
-	func followAUser(username:String, completion:DribbbleApiCompletion) {
+	public func followAUser(username:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("users/\(username)/follow", method: "PUT", completion: completion)
 	}
 	
-	func unfollowAUser(username:String, completion:DribbbleApiCompletion) {
+	public func unfollowAUser(username:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("users/\(username)/follow", method: "DELETE", completion: completion)
 	}
 	
 	//MARK: Users/Likes - http://developer.dribbble.com/v1/users/likes/
 	
-	func listShotLikesForAUser(username:String, completion:DribbbleApiCompletion) {
+	public func listShotLikesForAUser(username:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("users/\(username)/likes", method: "GET", completion: completion)
 	}
 	
-	func listShotLikesForAuthedUser(completion:DribbbleApiCompletion) {
+	public func listShotLikesForAuthedUser(completion:DribbbleApiCompletion) {
 		sendSimpleRequest("user/likes", method: "GET", completion: completion)
 	}
 	
 	//MARK: Users/Projects - http://developer.dribbble.com/v1/users/projects/
 	
-	func listAUsersProjects(username:String, completion:DribbbleApiCompletion) {
+	public func listAUsersProjects(username:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("users/\(username)/projects", method: "GET", completion: completion)
 	}
 	
-	func listAuthedUsersProjects(completion:DribbbleApiCompletion) {
+	public func listAuthedUsersProjects(completion:DribbbleApiCompletion) {
 		sendSimpleRequest("user/projects", method: "GET", completion: completion)
 	}
 	
 	//MARK: Users/Shots http://developer.dribbble.com/v1/users/shots/
 	
-	func listShotsForAUser(username:String, completion:DribbbleApiCompletion) {
+	public func listShotsForAUser(username:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("users/\(username)/shots", method: "GET", completion: completion)
 	}
 	
-	func listAuthedUsersShots(completion:DribbbleApiCompletion) {
+	public func listAuthedUsersShots(completion:DribbbleApiCompletion) {
 		sendSimpleRequest("user/shots", method: "GET", completion: completion)
 	}
 	
 	//MARK: Users/Teams - http://developer.dribbble.com/v1/users/teams/
 	
-	func listAUsersTeams(username:String, completion:DribbbleApiCompletion) {
+	public func listAUsersTeams(username:String, completion:DribbbleApiCompletion) {
 		sendSimpleRequest("users/\(username)/teams", method: "GET", completion: completion)
 	}
 	
-	func listAuthedUsersTeams(completion:DribbbleApiCompletion) {
+	public func listAuthedUsersTeams(completion:DribbbleApiCompletion) {
 		sendSimpleRequest("user/teams", method: "GET", completion: completion)
 	}
 }
 
-//Subclass a DribbbleShotsCollection to load more
-//content and append to a collection.
-public class DribbbleShotsCollection : NSObject {
+/**
+The DribbbleShotsCollection protocol defines a guideline
+to load and collect pages of data from the Dribbble API.
+*/
+public protocol DribbbleShotsCollectable {
+	/**
+	Initialize a shots collection.
 	
-	private var dribbble:DribbbleApi
-	private var page:Int = 1
+	- parameter dribbble: An instance of a DribbbleApi.
 	
-	public var data:[AnyObject?]?
+	- returns: self
+	*/
+	init(dribbble:DribbbleApi)
 	
-	//override to change parameters
-	var parameters:[String:String] {
-		get {
-			return ["page":"\(page)"]
+	/**
+	Load more content from the dribbbleApi.
+	
+	- parameter completion: A DribbbleApiCompletion callback.
+	*/
+	func loadContentWithCompletion(completion:DribbbleApiCompletion)
+	
+	/// Increment the page number in the API call.
+	func incrementPage()
+	
+	/**
+	Add data to the collection.
+	
+	- parameter data: Array? of AnyObject?
+	*/
+	func addData(data:[AnyObject?]?)
+}
+
+/**
+The DribbbleShotsCollection class is a default implementation of DribbbleShotsCollectable,
+you can override loadContentWithCompletion to customize what API calls you're making to
+load more content pages.
+*/
+public class DribbbleShotsCollection:DribbbleShotsCollectable {
+	
+	var api:DribbbleApi
+	var page:Int = 1
+	var parameters: [String : String] {
+		return ["page":String(self.page)]
+	}
+	
+	/// Loaded collection data available to use.
+	public var data: [AnyObject?]? = nil
+	
+	/**
+	Initialize a collection.
+	
+	- parameter dribbble: An instance of a DribbbleApi.
+	
+	- returns: self
+	*/
+	public required init(dribbble:DribbbleApi) {
+		self.api = dribbble
+	}
+	
+	/**
+	Load more content from the dribbbleApi.
+	
+	- parameter completion: A DribbbleApiCompletion callback.
+	*/
+	public func loadContentWithCompletion(completion: DribbbleApiCompletion) {
+		print("Override loadContentWithCompletion and make your API call with self.api")
+	}
+	
+	/**
+	Add data to the collection.
+	
+	- parameter data: Array? of AnyObject?
+	*/
+	public func addData(data: [AnyObject?]?) {
+		guard self.data != nil else { return }
+		if let data = data {
+			self.data! = self.data! + data
 		}
 	}
 	
-	init(dribbble:DribbbleApi) {
-		self.dribbble = dribbble
-	}
-	
-	func loadContentWithCompletion(completion:DribbbleApiCompletion) {
-		print("override DribbbleShotsCollection.load()")
-	}
-	
-	func incrementPage() {
+	/// Increment the page number in the API call.
+	public func incrementPage() {
 		page += 1
-	}
-	
-	func addContent(content:[AnyObject?]?) {
-		if data == nil {
-			data = content
-		} else {
-			data! += content!
-		}
 	}
 }

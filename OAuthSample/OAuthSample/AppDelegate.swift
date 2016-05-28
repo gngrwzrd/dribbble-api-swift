@@ -19,7 +19,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 	}
     
     func application(application: UIApplication, handleOpenURL url: NSURL) -> Bool {
-        DribbbleAuth.defaultInstance().handleAuthCallbackWithURL(url)
+        DribbbleAuth.defaultInstance.handleAuthCallbackWithURL(url)
         return true
     }
     
